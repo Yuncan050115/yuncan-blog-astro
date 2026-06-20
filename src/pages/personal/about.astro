@@ -1,0 +1,13 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHero from '../../components/PageHero.astro';
+import { getPageMarkdown } from '../../lib/content';
+const page = getPageMarkdown('pages/personal/about/index.md');
+---
+
+<BaseLayout title="关于">
+  <PageHero title="关于" description="关于我，也关于这个站点。" />
+  <section class="article-shell">
+    <div class="prose" set:html={page.html}></div>
+  </section>
+</BaseLayout>

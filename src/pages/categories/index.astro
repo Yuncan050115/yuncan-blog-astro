@@ -1,0 +1,19 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHero from '../../components/PageHero.astro';
+import { getTaxonomy } from '../../lib/content';
+
+const categories = getTaxonomy('categories');
+---
+
+<BaseLayout title="分类">
+  <PageHero title="分类" description="按主题归类文章，回头找起来方便些。" />
+  <section class="content-shell category-grid">
+    {categories.map((category) => (
+      <a class="category-card breathe-card" href={`/categories/${category.slug}/`}>
+        <strong>{category.name}</strong>
+        <span>{category.posts.length} 篇文章</span>
+      </a>
+    ))}
+  </section>
+</BaseLayout>

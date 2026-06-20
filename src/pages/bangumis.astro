@@ -1,0 +1,87 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHero from '../components/PageHero.astro';
+import Twikoo from '../components/Twikoo.astro';
+import { getBangumiData } from '../lib/content';
+
+const data = getBangumiData(1); // category=1 番剧
+const groups = [
+  { key: 'watching', title: '在看', items: data.watching },
+  { key: 'want', title: '想看', items: data.want },
+  { key: 'watched', title: '看过', items: data.watched },
+].filter(g => g.items.length);
+const total = data.watching.length + data.want.length + data.watched.length;
+const PAGE_SIZE = 24;
+---
+
+<BaseLayout title="追番">
+  <PageHero title="追番" description={`共 ${total} 部番剧`} />
+  <section class="content-shell">
+    {groups.map(group => (
+      <div class="media-section">
+        <div class="media-section-header">
+          <div class="section-heading small">
+            <p>BANGUMI</p>
+            <h2>{group.title}</h2>
+            <span>{group.items.length} 部</span>
+          </div>
+        </div>
+        <div class="bangumi-grid" data-group={group.key}>
+          {group.items.map((item, index) => (
+            <a class="bangumi-card breathe-card" href={item.url} target="_blank" rel="noopener"
+               data-index={index}
+               style={index >= PAGE_SIZE ? 'display:none' : ''}>
+              <img src={item.cover} alt={item.title} loading="lazy" decoding="async" referrerpolicy="no-referrer" />
+              <div class="bangumi-card-info">
+                <strong>{item.title}</strong>
+                <small>{item.type || '番剧'}{item.total ? ` · ${item.total}话` : ''}</small>
+                {item.score ? <span class="bangumi-score">{item.score}</span> : ''}
+              </div>
+            </a>
+          ))}
+        </div>
+        {group.items.length > PAGE_SIZE && (
+          <div class="bangumi-pagination" data-group={group.key} data-total={Math.ceil(group.items.length / PAGE_SIZE)}>
+            <button class="bangumi-prev" disabled>上一页</button>
+            <span class="bangumi-page-info">第 <em class="bangumi-current">1</em> / {Math.ceil(group.items.length / PAGE_SIZE)} 页</span>
+            <button class="bangumi-next">下一页</button>
+          </div>
+        )}
+      </div>
+    ))}
+  </section>
+  <section class="content-shell"><Twikoo /></section>
+</BaseLayout>
+
+<script is:inline>
+  (function() {
+    document.querySelectorAll('.bangumi-pagination').forEach(pagi => {
+      const group = pagi.dataset.group;
+      const total = parseInt(pagi.dataset.total);
+      let current = 1;
+      const grid = document.querySelector(`.bangumi-grid[data-group="${group}"]`);
+      if (!grid) return;
+      const cards = grid.querySelectorAll('.bangumi-card');
+      const prev = pagi.querySelector('.bangumi-prev');
+      const next = pagi.querySelector('.bangumi-next');
+      const currentEl = pagi.querySelector('.bangumi-current');
+
+      const showPage = (page) => {
+        current = page;
+        const start = (page - 1) * 24;
+        const end = start + 24;
+        cards.forEach((card, i) => {
+          card.style.display = (i >= start && i < end) ? '' : 'none';
+        });
+        if (currentEl) currentEl.textContent = page;
+        if (prev) prev.disabled = page <= 1;
+        if (next) next.disabled = page >= total;
+        // 滚动到分组顶部
+        grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+
+      if (prev) prev.addEventListener('click', () => { if (current > 1) showPage(current - 1); });
+      if (next) next.addEventListener('click', () => { if (current < total) showPage(current + 1); });
+    });
+  })();
+</script>

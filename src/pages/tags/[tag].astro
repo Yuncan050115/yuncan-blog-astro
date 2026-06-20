@@ -1,0 +1,19 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHero from '../../components/PageHero.astro';
+import PostCard from '../../components/PostCard.astro';
+import { getTaxonomy } from '../../lib/content';
+
+export function getStaticPaths() {
+  return getTaxonomy('tags').map((tag) => ({ params: { tag: tag.slug }, props: { tag } }));
+}
+
+const { tag } = Astro.props;
+---
+
+<BaseLayout title={`标签：${tag.name}`}>
+  <PageHero title={tag.name} eyebrow="TAG" description={`${tag.posts.length} 篇文章`} />
+  <section class="content-shell post-grid">
+    {tag.posts.map((post) => <PostCard post={post} />)}
+  </section>
+</BaseLayout>

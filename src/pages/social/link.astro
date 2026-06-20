@@ -1,0 +1,54 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHero from '../../components/PageHero.astro';
+import Icon from '../../components/Icon.astro';
+import Twikoo from '../../components/Twikoo.astro';
+import { getLinks } from '../../lib/content';
+const groups = getLinks();
+---
+
+<BaseLayout title="友人帐">
+  <PageHero title="友人帐" description="一些朋友的小站，值得去看看他们写的东西。" />
+  <section class="content-shell">
+    {groups.map((group) => (
+      <div class="friend-group">
+        <div class="section-heading small">
+          <p>FRIENDS</p>
+          <h2>{group.class_name}</h2>
+          <span>{group.class_desc}</span>
+        </div>
+        <div class="friend-grid">
+          {group.link_list.map((friend) => (
+            <a class="friend-card breathe-card" href={friend.link} target="_blank" rel="noreferrer">
+              <img class="friend-shot" src={friend.siteshot || friend.avatar} alt="" loading="lazy" decoding="async" />
+              <div>
+                <img class="friend-avatar" src={friend.avatar} alt="" loading="lazy" decoding="async" />
+                <strong>{friend.name}</strong>
+                <p>{friend.descr}</p>
+                <span><Icon name="link" />访问</span>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    ))}
+  </section>
+  <section class="content-shell">
+    <div class="friend-apply">
+      <div class="section-heading small">
+        <p>APPLY</p>
+        <h2>申请友链</h2>
+        <span>欢迎按以下格式留言申请</span>
+      </div>
+      <div class="friend-apply-template">
+        <p>站点名称：你的博客名</p>
+        <p>站点链接：https://your-site.com</p>
+        <p>站点头像：https://your-site.com/avatar.png</p>
+        <p>站点描述：一句话介绍你的站点</p>
+      </div>
+    </div>
+  </section>
+  <section class="content-shell">
+    <Twikoo />
+  </section>
+</BaseLayout>

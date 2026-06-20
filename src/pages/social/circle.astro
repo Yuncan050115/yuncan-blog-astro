@@ -1,0 +1,54 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHero from '../../components/PageHero.astro';
+import circleFeed from '../../../content/data/circle-feed.json';
+
+const articles = Array.isArray(circleFeed) ? circleFeed : [];
+const circleApi = import.meta.env.PUBLIC_CIRCLE_API || '';
+const configured = Boolean(circleApi);
+---
+<BaseLayout title="朋友圈">
+  <PageHero title="朋友圈" subtitle="友链站点动态聚合" />
+  <section class="content-shell">
+    {configured ? (
+      articles.length ? (
+        <div class="circle-container">
+          {articles.map((item) => (
+            <article class="circle-card">
+              <div class="circle-card-header">
+                <a href={item.link || '#'} target="_blank" rel="noopener" class="circle-author">
+                  {item.author || '未知站点'}
+                </a>
+                <time class="circle-date">{item.updated || item.created || ''}</time>
+              </div>
+              <h3 class="circle-title">
+                <a href={item.link || '#'} target="_blank" rel="noopener">
+                  {item.title || '无标题'}
+                </a>
+              </h3>
+              {item.summary && <p class="circle-desc">{item.summary}</p>}
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div class="circle-container">
+          <p class="circle-empty">暂无动态</p>
+        </div>
+      )
+    ) : (
+      <div class="circle-empty">
+        <h3>朋友圈功能未配置</h3>
+        <p>友链朋友圈（fircle）是一个独立部署的服务，用于聚合友链站点的最新文章。</p>
+        <h4>部署步骤：</h4>
+        <ol>
+          <li>将 <code>hexo-circle-of-friends-main</code> 目录部署到 Vercel（推荐）或自有服务器</li>
+          <li>修改 <code>fc_settings.yaml</code> 中的 <code>LINK</code> 为你的友链页地址</li>
+          <li>部署完成后获取 API 地址（如 <code>https://your-fcircle.vercel.app/api</code>）</li>
+          <li>将 API 地址填入博客 <code>.env</code> 的 <code>PUBLIC_CIRCLE_API</code></li>
+          <li>重新构建博客即可看到朋友圈动态</li>
+        </ol>
+        <p class="circle-empty-tip">详细文档：<a href="https://fcircle-doc.yyyzyyyz.cn/" target="_blank" rel="noopener">fcircle-doc.yyyzyyyz.cn</a></p>
+      </div>
+    )}
+  </section>
+</BaseLayout>

@@ -1,0 +1,8 @@
+- class_name: 友链示例🍔
+  class_desc: 欢迎交换友链
+  link_list:
+    - name: 你的站点
+      link: https://example.com/
+      avatar: https://example.com/favicon.ico
+      descr: 这里是站点描述
+      siteshot: https://example.com/screenshot.jpg

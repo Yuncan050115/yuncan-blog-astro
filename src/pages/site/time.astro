@@ -1,0 +1,42 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHero from '../../components/PageHero.astro';
+
+const timeline = [
+  {
+    year: '2023',
+    title: '从几篇笔记开始',
+    text: '那时候刚开始写学习笔记，C 语言、数据结构、配环境这些一个一个记下来。现在回看，写得很生硬，错处也不少，但确实是那时一点点摸索的样子。'
+  },
+  {
+    year: '2024',
+    title: '小站开始有了性格',
+    text: 'FusionCompute、OpenCloudOS、友链、留言、追番追剧和游戏记录陆续加进来，站点不再只是文章列表。功能堆得快，设计上其实粗糙，很多地方没想清楚就先上了。'
+  },
+  {
+    year: '2025',
+    title: '把生活入口留住',
+    text: '旧时光、恋爱小屋、友人帐、留言板这些入口加了进来。它们更新不勤，有些甚至长期空着，但我不想删掉，算是对生活那部分的交代。'
+  },
+  {
+    year: '2026',
+    title: '重新整理，再继续写',
+    text: '换了更轻的框架，背景、音乐、评论、阅读进度和文章结构都重新梳理了一遍。不是推倒重来，是把已有的东西理顺，然后接着写。'
+  }
+];
+---
+
+<BaseLayout title="旧时光">
+  <PageHero title="旧时光" description="这些年站点的一点变化，按年份记在这里。" />
+  <section class="content-shell memory-river">
+    {timeline.map((item, index) => (
+      <article class="memory-card breathe-card" style={`--i:${index}`}>
+        <time>{item.year}</time>
+        <div>
+          <h2>{item.title}</h2>
+          <p>{item.text}</p>
+        </div>
+      </article>
+    ))}
+  </section>
+</BaseLayout>

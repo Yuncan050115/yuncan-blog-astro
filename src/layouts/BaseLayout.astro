@@ -1,0 +1,276 @@
+---
+import { ClientRouter } from 'astro:transitions';
+import { site } from '../data/site';
+import Icon from '../components/Icon.astro';
+import SettingsPanel from '../components/SettingsPanel.astro';
+import PostEditor from '../components/PostEditor.astro';
+import '../styles/site.css';
+
+const { title = site.title, description = site.description } = Astro.props;
+const pageTitle = title === site.title ? site.title : `${title} | ${site.title}`;
+const hasMusic = !!(site.music?.api && site.music?.playlistId);
+const musicPayload = hasMusic ? {
+  api: site.musicApi,
+  server: site.music.server,
+  type: site.music.type,
+  id: site.music.playlistId,
+  autoplay: site.music.autoplay,
+  lyricMode: site.music.lyricMode,
+  fallbackCover: site.music.fallbackCover
+} : null;
+const preconnectOrigins = Array.from(new Set(
+  [site.background.image, site.music.api, site.twikooEnvId]
+    .map((url) => {
+      try { return new URL(url).origin; } catch { return ''; }
+    })
+    .filter(Boolean)
+));
+---
+
+<!doctype html>
+<html lang="zh-CN" data-theme-default="auto">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="keywords" content="博客, 随笔, 个人博客, Astro" />
+    <meta name="author" content={site.author} />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f4ef" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#101112" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={site.logo} />
+    <link rel="icon" type="image/png" href="/assets/logo-yuncan.png" />
+    <link rel="apple-touch-icon" href="/assets/logo-yuncan.png" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="/atom.xml" />
+    {preconnectOrigins.map((origin) => <link rel="preconnect" href={origin} />)}
+    <link rel="preconnect" href="https://api.bilibili.com" />
+    <link rel="preconnect" href="https://i0.hdslb.com" />
+    <link rel="preload" as="image" href={site.background.image} />
+    {/* 非关键 CSS 异步加载：字体与 KaTeX 仅在 print 媒体下加载，加载完成后切回 all，避免阻塞首屏渲染。
+        本地 @font-face（JinghuaLaosong 等）已在下方内联 <style> 中同步定义，主字体不受影响。 */}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css" media="print" onload="this.media='all'" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.17.0/dist/katex.min.css" media="print" onload="this.media='all'" />
+    <noscript>
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css" />
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.17.0/dist/katex.min.css" />
+    </noscript>
+    <style is:global>
+      @font-face {
+        font-family: 'JinghuaLaosong';
+        src: url('/assets/fonts/JinghuaLaosong.woff2') format('woff2');
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'LXGWWenKai';
+        src: url('/assets/fonts/LXGWWenKai-Light.woff2') format('woff2');
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'SourceHanSansOLD';
+        src: url('/assets/fonts/SourceHanSansOLD-ExtraLight-2.woff2') format('woff2');
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'FZYanSong';
+        src: url('/assets/fonts/方正颜宋简体_中.woff2') format('woff2');
+        font-display: swap;
+      }
+    </style>
+    <script is:inline>
+      (() => {
+        const root = document.documentElement;
+        const saved = localStorage.getItem('yuncan-theme');
+        if (saved === 'light' || saved === 'dark') {
+          root.dataset.theme = saved;
+        } else {
+          const hour = new Date().getHours();
+          root.dataset.theme = (hour >= 6 && hour < 19) ? 'light' : 'dark';
+        }
+      })();
+    </script>
+    <ClientRouter />
+  </head>
+  <body style={`--global-bg: url('${site.background.image}')`}>
+    <canvas id="breath-scene" transition:name="breath-scene" transition:persist></canvas>
+    <div class="global-bg" aria-hidden="true" transition:name="global-bg" transition:persist></div>
+    <div class="global-filter" aria-hidden="true" transition:name="global-filter" transition:persist></div>
+    <div class="grain" aria-hidden="true" transition:name="grain" transition:persist></div>
+    <div class="cursor-dot" aria-hidden="true" transition:name="cursor-dot" transition:persist></div>
+
+    <header class="site-header" transition:name="site-header" transition:persist>
+      <a class="brand-mark" href="/" aria-label="返回首页">
+        <img src={site.logo} alt={site.name} decoding="async" onerror={`this.onerror=null;this.src='${site.assets.defaultPostCover}'`} />
+      </a>
+      <nav class="site-nav site-nav--desktop" aria-label="桌面导航">
+        {site.nav.map((item) => {
+          const isExternal = typeof item.href === 'string' && /^https?:\/\//.test(item.href);
+          return (
+          <div class:list={['nav-item', { 'has-children': 'children' in item && item.children?.length }]}>
+            <a href={item.href} target={isExternal ? '_blank' : undefined} rel={isExternal ? 'noopener' : undefined}>
+              <span>{item.label}</span>
+              {'children' in item && item.children?.length ? <Icon name="chevron" /> : null}
+            </a>
+            {'children' in item && item.children?.length ? (
+              <div class="nav-popover">
+                {item.children.map((child) => {
+                  const childExternal = typeof child.href === 'string' && /^https?:\/\//.test(child.href);
+                  return <a href={child.href} target={childExternal ? '_blank' : undefined} rel={childExternal ? 'noopener' : undefined}>{child.label}</a>;
+                })}
+              </div>
+            ) : null}
+          </div>
+          );
+        })}
+      </nav>
+      <div class="header-actions">
+        <SettingsPanel />
+        <button class="icon-button" data-theme-toggle title="昼夜切换" aria-label="昼夜切换">
+          <span class="sun"><Icon name="sun" /></span>
+          <span class="moon"><Icon name="moon" /></span>
+        </button>
+        <button class="icon-button nav-toggle" data-nav-toggle title="菜单" aria-label="菜单">
+          <Icon name="menu" />
+        </button>
+      </div>
+    </header>
+
+    <!-- 移动端独立导航抽屉（脱离 header 的包含块） -->
+    <nav class="site-nav site-nav--mobile" aria-label="移动导航" data-nav-mobile>
+      {site.nav
+        .filter((item) => ['文章', '在看', '在玩', '留言板', '友链', '个人', '诗集', '主站'].includes(item.label))
+        .map((item) => {
+          const isExternal = typeof item.href === 'string' && /^https?:\/\//.test(item.href);
+          const hasChildren = 'children' in item && item.children?.length;
+          return (
+            <div class="mobile-nav-group">
+              <a class="mobile-nav-link" href={item.href} target={isExternal ? '_blank' : undefined} rel={isExternal ? 'noopener' : undefined}>
+                {item.label}
+              </a>
+              {hasChildren ? (
+                <div class="mobile-nav-children">
+                  {item.children!.map((child) => {
+                    const childExternal = typeof child.href === 'string' && /^https?:\/\//.test(child.href);
+                    return (
+                      <a class="mobile-nav-child" href={child.href} target={childExternal ? '_blank' : undefined} rel={childExternal ? 'noopener' : undefined}>
+                        {child.label}
+                      </a>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+    </nav>
+
+    <div class="nav-scrim" data-nav-scrim aria-hidden="true"></div>
+
+    <!-- 图片放大灯箱 -->
+    <div class="image-lightbox" data-image-lightbox aria-hidden="true">
+      <button class="image-lightbox-close" data-image-lightbox-close aria-label="关闭">&times;</button>
+      <img class="image-lightbox-img" data-image-lightbox-img src="" alt="" />
+      <span class="image-lightbox-hint">滚轮/双击缩放 · 拖动移动 · ESC关闭</span>
+    </div>
+
+    <main id="main">
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        <strong>{site.title}</strong>
+        <span>{site.subtitle}</span>
+      </div>
+      <p>
+        <a href={site.mainSite} target="_blank" rel="noopener">前往主站</a>
+        {' · '}{site.icp} · Powered by Astro · {site.githubUser} · v{site.version}
+      </p>
+    </footer>
+
+    {hasMusic && (
+      <aside class="music-dock" data-music={JSON.stringify(musicPayload)} transition:name="music-dock" transition:persist>
+        <button class="music-cover" data-music-play aria-label="播放或暂停音乐" title="播放或暂停音乐">
+          <img src={site.music.fallbackCover || site.logo} alt="" decoding="async" />
+        </button>
+        <div class="music-info">
+          <strong data-music-title>Music</strong>
+          <span data-music-artist>{site.name}</span>
+          <p data-music-lyric>正在连接歌单</p>
+        </div>
+        <div class="music-controls">
+          <button type="button" class="music-btn" data-music-prev aria-label="上一首" title="上一首">
+            <Icon name="prev" />
+          </button>
+          <button type="button" class="music-btn music-btn-play" data-music-play aria-label="播放或暂停音乐" title="播放或暂停音乐">
+            <Icon name="play" />
+            <Icon name="pause" />
+          </button>
+          <button type="button" class="music-btn" data-music-next aria-label="下一首" title="下一首">
+            <Icon name="next" />
+          </button>
+        </div>
+        {/* 歌单列表 */}
+        <div class="music-list" data-music-list></div>
+        <audio data-music-audio preload="metadata"></audio>
+      </aside>
+    )}
+
+    <!-- 歌词栏 -->
+    <div id="lyric-bar" class="lyric-bar" data-lyric-bar transition:persist>
+      <div class="lyric-bar-inner">
+        <span class="lyric-bar-text" data-lyric-text>暂无歌词</span>
+      </div>
+    </div>
+
+    <div class="runtime-tools" transition:persist>
+      <span id="runtime-days" data-site-start={site.siteStart}>运行 -- 天</span>
+      <span id="fps">FPS --</span>
+      <button class="icon-button" data-back-top title="返回顶部" aria-label="返回顶部">
+        <Icon name="arrow" />
+      </button>
+    </div>
+
+    <div id="context-menu" class="context-menu" aria-hidden="true" transition:name="context-menu" transition:persist>
+      <div class="context-row context-icons">
+        <button data-context-action="back" title="后退"><Icon name="arrow" /></button>
+        <button data-context-action="forward" title="前进"><Icon name="arrow" /></button>
+        <button data-context-action="reload" title="刷新"><Icon name="refresh" /></button>
+        <button data-context-action="top" title="回到顶部"><Icon name="arrow" /></button>
+      </div>
+      <div class="context-row">
+        <button data-context-action="copy-url">复制地址</button>
+        <button data-context-action="comment">去评论</button>
+        <button data-context-action="theme">昼夜切换</button>
+        <button data-context-action="print">打印页面</button>
+      </div>
+    </div>
+
+    <!-- 全局赞赏弹窗（从文章页提升至 body 子级，避免层叠上下文和包含块问题） -->
+    <div class="reward-dialog" data-reward-dialog aria-hidden="true">
+      <button class="reward-scrim" type="button" data-reward-close aria-label="关闭赞赏"></button>
+      <div class="reward-panel" role="dialog" aria-label={site.reward.title}>
+        <button class="reward-close" type="button" data-reward-close aria-label="关闭"><Icon name="close" /></button>
+        <p>THANKS</p>
+        <h2>{site.reward.title}</h2>
+        <span>{site.reward.text}</span>
+        <div class="reward-codes">
+          {site.reward.images.map((image) => (
+            <figure>
+              <img src={image.src} alt={`${image.label}收款码`} loading="lazy" decoding="async" onerror="this.closest('figure').style.display='none'" />
+              <figcaption>{image.label}</figcaption>
+            </figure>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <style is:global>
+      .reward-dialog { z-index: 1002 !important; }
+    </style>
+
+    <script src="../scripts/app.ts"></script>
+    <PostEditor />
+  </body>
+</html>

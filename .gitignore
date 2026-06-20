@@ -1,0 +1,28 @@
+# 构建产物
+dist/
+.astro/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
+# 依赖
+node_modules/
+
+# 环境与本地数据
+.netlify/
+.env
+.env.local
+.env.production
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+npm-debug.log*

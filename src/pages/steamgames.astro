@@ -1,0 +1,61 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHero from '../components/PageHero.astro';
+import Twikoo from '../components/Twikoo.astro';
+import { site } from '../data/site';
+import steamGames from '../../content/data/steam-games.json';
+
+const games = Array.isArray(steamGames) ? steamGames : [];
+const totalHours = Math.round(games.reduce((sum, g) => sum + (g.playtimeForever || 0), 0) / 60);
+const heroDesc = games.length
+  ? `Steam 游戏库，${games.length} 款，累计约 ${totalHours} 小时。`
+  : 'Steam 游戏库';
+---
+
+<BaseLayout title="在玩">
+  <PageHero title="在玩" description={heroDesc} />
+  <section class="content-shell">
+    <div class="media-section-header">
+      <div class="section-heading small">
+        <p>STEAM</p>
+        <h2>游戏库</h2>
+      </div>
+      <a class="source-pill" href={site.media.steamProfile} target="_blank" rel="noopener">Steam 主页</a>
+    </div>
+    {games.length ? (
+      <div class="steam-grid">
+        {games.map((game) => (
+          <article class="steam-card breathe-card">
+            <a href={game.storeUrl} target="_blank" rel="noopener">
+              <img src={game.cover} alt={game.title} loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror={`this.onerror=null;this.src='${site.assets.defaultPostCover}'`} />
+            </a>
+            <div>
+              <strong>{game.title}</strong>
+              <small>{game.playtimeHours || '未记录时长'}</small>
+              <nav class="steam-links" aria-label={`${game.title} 链接`}>
+                <a href={game.storeUrl} target="_blank" rel="noopener">商店</a>
+                {game.communityUrl && <a href={game.communityUrl} target="_blank" rel="noopener">社区</a>}
+                {game.newsUrl && <a href={game.newsUrl} target="_blank" rel="noopener">新闻</a>}
+                {game.steamdbUrl && <a href={game.steamdbUrl} target="_blank" rel="noopener">SteamDB</a>}
+              </nav>
+            </div>
+          </article>
+        ))}
+      </div>
+    ) : (
+      <div class="empty-state">
+        <h2>暂时无法加载游戏库</h2>
+        <p>请稍后再试，或访问 Steam 主页查看。</p>
+        <p style="margin-top: 1rem; color: var(--text-muted, #888); font-size: 0.9em;">
+          Steam ID: {site.media.steamId}
+        </p>
+        <a href={site.media.steamProfile} target="_blank" rel="noopener" class="source-pill" style="margin-top: 1rem; display: inline-block;">
+          访问 Steam 主页
+        </a>
+      </div>
+    )}
+  </section>
+  <section class="content-shell">
+    <Twikoo />
+  </section>
+</BaseLayout>

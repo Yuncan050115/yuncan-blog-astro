@@ -1,0 +1,17 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHero from '../../components/PageHero.astro';
+import Twikoo from '../../components/Twikoo.astro';
+---
+
+<BaseLayout title="恋爱小屋">
+  <PageHero title="恋爱小屋" description="暂时不找对象，这页就先这样。" />
+  <section class="content-shell love-room">
+    <div class="love-note breathe-card">
+      <p>不找对象。</p>
+    </div>
+  </section>
+  <section class="content-shell">
+    <Twikoo />
+  </section>
+</BaseLayout>

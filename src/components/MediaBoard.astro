@@ -1,0 +1,41 @@
+---
+import type { MediaGroup } from '../lib/content';
+import { site } from '../data/site';
+
+const { groups, source = '记录' } = Astro.props;
+const typedGroups = groups as MediaGroup[];
+---
+
+<div class="media-board">
+  {typedGroups.map((group) => (
+    <section class="media-section">
+      <div class="media-section-header">
+        <div class="section-heading small">
+          <p>{group.key}</p>
+          <h2>{group.title}</h2>
+        </div>
+        <span class="source-pill" data-media-source>{source}</span>
+      </div>
+      <div class="media-grid">
+        {group.items.slice(0, 60).map((item) => (
+          <a class="media-card breathe-card" href={item.url || '#'} target={item.url ? '_blank' : undefined} rel={item.url ? 'noopener' : undefined}>
+            <img
+              src={item.cover || site.assets.defaultPostCover}
+              alt={item.title}
+              loading="lazy"
+              decoding="async"
+              referrerpolicy="no-referrer"
+              onerror={`this.onerror=null;this.src='${site.assets.defaultPostCover}'`}
+            />
+            <div>
+              <strong>{item.title}</strong>
+              <span>{item.type || item.area || '记录'} · {item.totalCount || '未知'}</span>
+              <p>{item.des}</p>
+              <small>评分 {item.score || '-'} · {item.view || item.follow || ''}</small>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+  ))}
+</div>

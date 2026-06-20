@@ -1,0 +1,58 @@
+---
+// 设置面板组件
+---
+<div class="settings-panel" id="settings-panel">
+  <!-- 设置按钮（齿轮图标） -->
+  <button class="icon-button settings-toggle" data-settings-toggle title="设置" aria-label="设置">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+
+  <!-- 设置面板弹窗 -->
+  <div class="settings-popup" id="settings-popup" style="display: none;">
+    <div class="settings-header">
+      <h3>设置</h3>
+      <button class="settings-close" data-settings-close aria-label="关闭">&times;</button>
+    </div>
+    <div class="settings-body">
+      <!-- 字体大小 -->
+      <div class="settings-group">
+        <label class="settings-label">字体大小</label>
+        <div class="settings-options" data-setting="fontSize">
+          <button class="setting-opt" data-value="small">小</button>
+          <button class="setting-opt active" data-value="medium">中</button>
+          <button class="setting-opt" data-value="large">大</button>
+          <button class="setting-opt" data-value="xlarge">超大</button>
+        </div>
+      </div>
+
+      <!-- 字体族 -->
+      <div class="settings-group">
+        <label class="settings-label">字体</label>
+        <div class="settings-options" data-setting="fontFamily">
+          <button class="setting-opt active" data-value="default">默认</button>
+          <button class="setting-opt" data-value="JinghuaLaosong">京华老宋</button>
+          <button class="setting-opt" data-value="LXGWWenKai">霞鹜文楷</button>
+          <button class="setting-opt" data-value="SourceHanSansOLD">思源黑体</button>
+          <button class="setting-opt" data-value="FZYanSong">方正颜宋</button>
+        </div>
+      </div>
+
+      <!-- 背景图片 -->
+      <div class="settings-group">
+        <label class="settings-label">背景图片</label>
+        <div class="settings-options" data-setting="bgImage">
+          <button class="setting-opt active" data-value="default">默认</button>
+          <button class="setting-opt" data-value="none">无壁纸</button>
+          <button class="setting-opt" data-value="bing">必应随机</button>
+          <button class="setting-opt" data-value="random">随机壁纸</button>
+        </div>
+      </div>
+    </div>
+    <div class="settings-footer">
+      <button class="settings-reset" data-settings-reset>恢复默认</button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,40 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHero from '../components/PageHero.astro';
+import { getPosts } from '../lib/content';
+
+const posts = getPosts();
+const groups = posts.reduce<Record<string, typeof posts>>((acc, post) => {
+  const year = post.date.slice(0, 4) || '未归档';
+  acc[year] = acc[year] || [];
+  acc[year].push(post);
+  return acc;
+}, {});
+const years = Object.entries(groups).sort(([a], [b]) => Number(b) - Number(a));
+---
+
+<BaseLayout title="归档">
+  <PageHero title="归档" description={`按时间排列的 ${posts.length} 篇文章，新旧都有。`} />
+  {years.map(([year, items]) => (
+    <div class="archive-row">
+      <div class="archive-year">
+        <span>{year}</span>
+        <small>{items.length} 篇</small>
+      </div>
+      <div class="archive-list">
+        {items.map((post) => (
+          <a class="archive-item breathe-card" href={`/posts/${post.slug}/`}>
+            {post.cover && <img class="archive-item-cover" src={post.cover} alt="" loading="lazy" decoding="async" />}
+            <time>{post.date}</time>
+            <div>
+              {post.pinned && <span class="pin-badge">置顶</span>}
+              <strong>{post.title}</strong>
+              <p>{post.description || post.excerpt}</p>
+            </div>
+            {post.categories[0] && <em>{post.categories[0]}</em>}
+          </a>
+        ))}
+      </div>
+    </div>
+  ))}
+</BaseLayout>

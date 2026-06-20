@@ -1,0 +1,27 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHero from '../components/PageHero.astro';
+import Icon from '../components/Icon.astro';
+import Twikoo from '../components/Twikoo.astro';
+import { site } from '../data/site';
+---
+
+<BaseLayout title="项目">
+  <PageHero title="项目" description="GitHub 主页置顶的几个项目。" />
+  <section class="content-shell project-grid">
+    {site.projects.map((project) => (
+      <a class="project-card breathe-card" href={project.href} target="_blank" rel="noreferrer">
+        <Icon name="github" size={24} />
+        <strong>{project.name}</strong>
+        <p>{project.description}</p>
+        <span>
+          {project.language}
+          {typeof project.stars === 'number' ? ` · ${project.stars} stars` : ''}
+        </span>
+      </a>
+    ))}
+  </section>
+  <section class="content-shell">
+    <Twikoo />
+  </section>
+</BaseLayout>

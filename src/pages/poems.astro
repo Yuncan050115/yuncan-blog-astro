@@ -1,0 +1,593 @@
+---
+import fs from 'node:fs';
+import path from 'node:path';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHero from '../components/PageHero.astro';
+import Twikoo from '../components/Twikoo.astro';
+
+type Poem = {
+  date: string;
+  title: string;
+  author: string;
+  body: string[];
+  images: string[];
+  group: string;
+  groupIndex: number;
+  notes: string[];
+  slug: string;
+  excerpt: string;
+  tags: string[];
+};
+
+type PoemGroup = {
+  name: string;
+  title: string;
+  description: string;
+  poems: Poem[];
+};
+
+const raw = fs.readFileSync(path.join(process.cwd(), 'content', 'poems.md'), 'utf8');
+const lines = raw.split(/\r?\n/);
+
+// 解析序言（# 序 到 # 说明 之间的内容）
+const prefaceLines: string[] = [];
+let inPreface = false;
+for (const rawLine of lines) {
+  const line = rawLine.trim();
+  if (/^#\s+序\s*$/.test(line)) {
+    inPreface = true;
+    continue;
+  }
+  if (inPreface && /^#\s+说明\s*$/.test(line)) {
+    break;
+  }
+  if (inPreface) {
+    if (line === '---' || line === '') continue;
+    prefaceLines.push(line);
+  }
+}
+// 末尾两行为落款（作者 / 日期）
+const prefaceBody = prefaceLines.length > 2 ? prefaceLines.slice(0, -2) : prefaceLines;
+const prefaceSignature = prefaceLines.length > 2 ? prefaceLines.slice(-2) : [];
+
+// 图片语法：![alt](url)
+const imagePattern = /!\[[^\]]*\]\(([^)]+)\)/;
+// 阿拉伯数字日期：2019-07-07 / 2019.7.7 / 2019年7月7日
+const arabicDatePattern = /^\d{2,4}[.\-/年]\d{1,2}([.\-/月]\d{1,2}日?)?/;
+// 中文数字日期：二〇一九年七月七日（年份为二+三位中文数字=四位）
+const chineseDatePattern = /^二[〇一二三四五六七八九]{3}年[一二三四五六七八九十]+月/;
+// 注释起始：注：/背景：/说明：/整理说明：
+const noteStartPattern = /^(注\s*[：:]|背景\s*[：:]|说明\s*[：:]|整理说明\s*[：:])/;
+// 配图标签：配图：
+const imageLabelPattern = /^配图\s*[：:]/;
+// 注释续行：一、 二、 三、 等（仅用于"注："之后）
+const noteContinuationPattern = /^[一二三四五六七八九十]+[、.．]/;
+// 标签行：标签：tag1 / 标签：tag1, tag2
+const tagPattern = /^标签\s*[：:]/;
+// 作者关键字（按需添加你自己的笔名）
+const authorPattern = /(作者|落款)/;
+
+// 辑分组定义
+const groupPatterns = [
+  { pattern: /^#\s*第一辑/, name: '第一辑', title: '少作存真', description: '收录二〇一九至二〇二〇年初学旧稿。' },
+  { pattern: /^#\s*第二辑/, name: '第二辑', title: '故里岁时', description: '收录家乡、冬雪、除夕、中秋等作品。' },
+  { pattern: /^#\s*第三辑/, name: '第三辑', title: '难行随行', description: '收录高中后期至大学初期系列习作。' },
+  { pattern: /^#\s*第四辑/, name: '第四辑', title: '月城在南', description: '收录白云山、蓝花楹、城市月夜等作品。' },
+  { pattern: /^#\s*第五辑/, name: '第五辑', title: '青年自志', description: '收录二〇二五年前后作品。' },
+  { pattern: /^#\s*附编/, name: '附编', title: '现代诗创', description: '收录现代诗习作。' },
+];
+
+function isDateLine(line: string): boolean {
+  return chineseDatePattern.test(line) || arabicDatePattern.test(line);
+}
+
+function isAuthorLine(line: string): boolean {
+  // 作者行：包含作者关键字、长度短、不含句末标点
+  return authorPattern.test(line) && line.length <= 20 && !/[。！？，；]/.test(line);
+}
+
+// 中文数字转阿拉伯数字（用于日期排序）
+function parseChineseNumber(str: string): number {
+  if (!str) return 0;
+  if (str === '十') return 10;
+  if (str.startsWith('十')) return 10 + parseChineseNumber(str.slice(1));
+  if (str.endsWith('十')) return parseChineseNumber(str.slice(0, -1)) * 10;
+  if (str.includes('十')) {
+    const idx = str.indexOf('十');
+    const tensStr = str.slice(0, idx);
+    const onesStr = str.slice(idx + 1);
+    const tens = tensStr ? parseChineseNumber(tensStr) : 1;
+    const ones = onesStr ? parseChineseNumber(onesStr) : 0;
+    return tens * 10 + ones;
+  }
+  const map: Record<string, number> = {
+    '一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
+    '六': 6, '七': 7, '八': 8, '九': 9, '〇': 0,
+  };
+  let result = 0;
+  for (const c of str) {
+    result = result * 10 + (map[c] ?? 0);
+  }
+  return result;
+}
+
+// 将日期字符串解析为可排序的数字（YYYYMMDD）
+function parseDateForSort(dateStr: string): number {
+  if (!dateStr) return 99999999;
+  const digitMap: Record<string, number> = {
+    '〇': 0, '一': 1, '二': 2, '三': 3, '四': 4,
+    '五': 5, '六': 6, '七': 7, '八': 8, '九': 9,
+  };
+  let year = 0, month = 0, day = 0;
+  // 年份：二〇一九 → 2019（含开头的"二"，共四位中文数字）
+  const yearMatch = dateStr.match(/(二[〇一二三四五六七八九]{3})年/);
+  if (yearMatch) {
+    year = yearMatch[1].split('').reduce((acc, c) => acc * 10 + (digitMap[c] ?? 0), 0);
+  }
+  const monthMatch = dateStr.match(/年([一二三四五六七八九十]+)月/);
+  if (monthMatch) {
+    month = parseChineseNumber(monthMatch[1]);
+  }
+  const dayMatch = dateStr.match(/月([一二三四五六七八九十]+)日?/);
+  if (dayMatch) {
+    day = parseChineseNumber(dayMatch[1]);
+  }
+  // 回退到阿拉伯数字
+  if (!year) {
+    const m = dateStr.match(/(\d{2,4})/);
+    if (m) year = parseInt(m[1], 10);
+  }
+  return year * 10000 + month * 100 + day;
+}
+
+// 解析单首诗：区分元数据（作者、日期）、注释（背景/说明/注）、配图、正文、标签
+function parsePoem(headerLine: string, bodyLines: string[], group: PoemGroup): Poem {
+  const title = headerLine.replace(/^#+\s*/, '').trim();
+  const poem: Poem = {
+    date: '',
+    title,
+    author: '',
+    body: [],
+    images: [],
+    group: group.name,
+    groupIndex: 0,
+    notes: [],
+    slug: title.replace(/\s+/g, '-').replace(/[^\w-]/g, ''),
+    excerpt: '',
+    tags: [],
+  };
+
+  let inNotesSection = false;
+  let metadataDone = false;
+
+  for (const rawLine of bodyLines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (line === '---') continue;
+
+    // 图片行
+    const imgMatch = line.match(imagePattern);
+    if (imgMatch) {
+      poem.images.push(imgMatch[1]);
+      inNotesSection = false;
+      continue;
+    }
+
+    // 配图标签行（仅作标签，跳过；后续图片行单独捕获）
+    if (imageLabelPattern.test(line)) {
+      inNotesSection = false;
+      continue;
+    }
+
+    // 注释起始行（背景：/说明：/注：/整理说明：）
+    if (noteStartPattern.test(line)) {
+      poem.notes.push(line);
+      inNotesSection = /^注/.test(line);
+      metadataDone = true;
+      continue;
+    }
+
+    // 注释续行（"注："之后的 一、二、三、 编号项）
+    if (inNotesSection && noteContinuationPattern.test(line)) {
+      poem.notes.push(line);
+      continue;
+    }
+
+    // 元数据识别（作者、日期、标签，仅在正文开始前）
+    if (!metadataDone) {
+      if (!poem.author && isAuthorLine(line)) {
+        poem.author = line;
+        continue;
+      }
+      if (!poem.date && isDateLine(line)) {
+        poem.date = line;
+        metadataDone = true;
+        continue;
+      }
+      // 标签行
+      const tagMatch = line.match(tagPattern);
+      if (tagMatch) {
+        poem.tags = line.split(/[：:]/)[1].split(/[,，]/).map(t => t.trim()).filter(t => t);
+        continue;
+      }
+    }
+
+    // 其余非空行均为诗文正文，完整保留
+    poem.body.push(line);
+    inNotesSection = false;
+  }
+
+  if (!poem.author) poem.author = '佚名';
+  if (!poem.excerpt && poem.body.length > 0) poem.excerpt = poem.body[0];
+  return poem;
+}
+
+// 主解析循环：按辑分组、按 ## 或 ### 篇 切分诗
+const groups: PoemGroup[] = [];
+let currentGroup: PoemGroup | null = null;
+let currentPoemHeader: string | null = null;
+let currentPoemLines: string[] = [];
+
+function flushPoem() {
+  if (currentPoemHeader && currentGroup) {
+    const poem = parsePoem(currentPoemHeader, currentPoemLines, currentGroup);
+    currentGroup.poems.push(poem);
+  }
+  currentPoemHeader = null;
+  currentPoemLines = [];
+}
+
+function flushGroup() {
+  flushPoem();
+  if (currentGroup) {
+    groups.push(currentGroup);
+  }
+}
+
+for (const rawLine of lines) {
+  const line = rawLine.trim();
+
+  // 检测辑分组标题
+  const gp = groupPatterns.find(g => g.pattern.test(line));
+  if (gp) {
+    flushGroup();
+    currentGroup = { name: gp.name, title: gp.title, description: gp.description, poems: [] };
+    continue;
+  }
+
+  // 检测诗标题（## 开头，或附编中的 ### 篇X）
+  if (currentGroup && (line.startsWith('## ') || /^###\s+篇/.test(line))) {
+    flushPoem();
+    currentPoemHeader = line;
+    currentPoemLines = [];
+    continue;
+  }
+
+  // 收集当前诗的正文行
+  if (currentPoemHeader) {
+    currentPoemLines.push(rawLine);
+  }
+}
+
+flushGroup();
+
+// 为每首诗分配 groupIndex
+for (let gi = 0; gi < groups.length; gi++) {
+  for (const poem of groups[gi].poems) {
+    poem.groupIndex = gi;
+  }
+}
+
+// 时间轴视图：所有诗按日期排序，并按年份分组
+const allPoems: Poem[] = groups.flatMap(g => g.poems);
+allPoems.sort((a, b) => parseDateForSort(a.date) - parseDateForSort(b.date));
+
+// 按年份分组
+const yearMap: Record<number, Poem[]> = {};
+for (const poem of allPoems) {
+  const chineseYearMatch = poem.date.match(/二[〇一二三四五六七八九]{3}/);
+  const arabicYearMatch = poem.date.match(/\d{4}/);
+  let year = 0;
+  if (chineseYearMatch) {
+    const digitMap: Record<string, number> = { '〇': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9 };
+    year = chineseYearMatch[0].split('').reduce((acc, c) => acc * 10 + (digitMap[c] ?? 0), 0);
+  } else if (arabicYearMatch) {
+    year = parseInt(arabicYearMatch[0], 10);
+  }
+  if (!yearMap[year]) yearMap[year] = [];
+  yearMap[year].push(poem);
+}
+const timelineGroups = Object.keys(yearMap).sort((a, b) => parseInt(b) - parseInt(a)).map(year => ({ year: parseInt(year), poems: yearMap[parseInt(year)] }));
+---
+
+<BaseLayout title="诗集">
+  <PageHero title="诗集" description="诗与远方" />
+
+  <!-- 防复制保护脚本 -->
+  <script is:inline>
+    // 禁止右键菜单
+    document.addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+      return false;
+    });
+
+    // 禁止 Ctrl+C / Ctrl+A
+    document.addEventListener('keydown', function(e) {
+      if ((e.ctrlKey && e.key === 'c') || (e.ctrlKey && e.key === 'a')) {
+        e.preventDefault();
+        return false;
+      }
+      // 禁止 F12
+      if (e.key === 'F12') {
+        e.preventDefault();
+        return false;
+      }
+      // 禁止 Ctrl+Shift+I (开发者工具)
+      if (e.ctrlKey && e.shiftKey && e.key === 'I') {
+        e.preventDefault();
+        return false;
+      }
+      // 禁止 Ctrl+Shift+J (控制台)
+      if (e.ctrlKey && e.shiftKey && e.key === 'J') {
+        e.preventDefault();
+        return false;
+      }
+      // 禁止 Ctrl+U (查看源代码)
+      if (e.ctrlKey && e.key === 'u') {
+        e.preventDefault();
+        return false;
+      }
+    });
+
+    // 禁止选择文本
+    document.addEventListener('selectstart', function(e) {
+      e.preventDefault();
+      return false;
+    });
+
+    // 禁止拖拽
+    document.addEventListener('dragstart', function(e) {
+      e.preventDefault();
+      return false;
+    });
+  </script>
+
+  <!-- 序言（古生古色） -->
+  {prefaceBody.length > 0 && (
+    <section class="content-shell poem-preface">
+      <div class="preface-frame classical-frame">
+        <h2 class="preface-title classical-title">序</h2>
+        <div class="preface-body classical-body">
+          {prefaceBody.map((line) => <p>{line}</p>)}
+        </div>
+        {prefaceSignature.length > 0 && (
+          <div class="preface-signature">
+            {prefaceSignature.map((line) => <p>{line}</p>)}
+          </div>
+        )}
+      </div>
+    </section>
+  )}
+
+  <!-- 视图切换按钮 -->
+  <section class="content-shell poem-view-toggle">
+    <div class="view-switcher">
+      <button id="view-catalog" class="view-btn" aria-label="诗集视图">
+        <svg class="icon" viewBox="0 0 24 24" width="18" height="18">
+          <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span>诗集</span>
+      </button>
+      <button id="view-timeline" class="view-btn active" aria-label="时间轴视图">
+        <svg class="icon" viewBox="0 0 24 24" width="18" height="18">
+          <path d="M12 2v20M2 12h4M18 12h4M6 6l2 2M16 16l2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span>时间轴</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- 目录视图（按辑分组，古生古色风格） -->
+  <section class="content-shell poem-catalog-view" id="catalog-view" style="display: none;">
+    {groups.map((group, gi) => (
+      <div class="poem-group classical-group" style={`--gi: ${gi}`}>
+        <header class="group-header classical-header">
+          <div class="group-badge classical-badge">{group.name}</div>
+          <h3 class="group-title classical-group-title">{group.title}</h3>
+          <p class="group-desc">{group.description}</p>
+        </header>
+        <div class="poem-grid classical-grid">
+          {group.poems.map((poem, pi) => (
+            <article class="poem-card classical-card breathe-card" style={`--pi: ${pi}`}>
+              <div class="card-inner classical-inner">
+                <span class="poem-date classical-date">{poem.date}</span>
+                <h4 class="poem-title classical-card-title">{poem.title}</h4>
+                <p class="poem-author classical-author">{poem.author}</p>
+                <div class="poem-preview classical-preview">
+                  {poem.body.map((line) => <span>{line}</span>)}
+                </div>
+                {poem.notes.length > 0 && (
+                  <div class="poem-notes">
+                    {poem.notes.map((note) => <small class="poem-note-line">{note}</small>)}
+                  </div>
+                )}
+                {poem.images.length > 0 && (
+                  <div class="poem-card-gallery">
+                    {poem.images.slice(0, 3).map((src, i) => (
+                      <img src={src} alt={`${poem.title}配图 ${i + 1}`} loading="lazy" decoding="async" referrerpolicy="no-referrer" />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    ))}
+  </section>
+
+  <!-- 时间轴视图：按年份分组，与归档页面布局一致 -->
+  <section class="content-shell poem-timeline-view" id="timeline-view">
+    <div class="section-heading small">
+      <p>TIMELINE</p>
+      <h2>按时间读</h2>
+    </div>
+    <div class="poem-list">
+      {timelineGroups.map(({ year, poems: yearPoems }) => (
+        <div class="poem-archive-year-group">
+          <div class="poem-archive-year">{year}</div>
+          <div class="poem-archive-list">
+            {yearPoems.map((poem) => (
+              <article class="poem-archive-item">
+                <div class="poem-meta">
+                  <time>{poem.date}</time>
+                </div>
+                <div class="poem-content">
+                  <h3><a href={`/posts/${poem.slug}/`}>{poem.title}</a></h3>
+                  <p class="poem-author-line">{poem.author}</p>
+                  <div class="poem-excerpt-multi">
+                    {poem.body.map((line) => <p>{line}</p>)}
+                  </div>
+                  {poem.images.length > 0 && (
+                    <div class="poem-archive-gallery">
+                      {poem.images.slice(0, 3).map((src, i) => (
+                        <img src={src} alt={`${poem.title}配图 ${i + 1}`} loading="lazy" decoding="async" referrerpolicy="no-referrer" />
+                      ))}
+                    </div>
+                  )}
+                  {poem.tags.length > 0 && (
+                    <div class="poem-tags">
+                      {poem.tags.map(tag => <span class="tag">{tag}</span>)}
+                    </div>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <section class="content-shell">
+    <Twikoo />
+  </section>
+
+  <!-- 视图切换脚本 -->
+  <script>
+    const catalogBtn = document.getElementById('view-catalog');
+    const timelineBtn = document.getElementById('view-timeline');
+    const catalogView = document.getElementById('catalog-view');
+    const timelineView = document.getElementById('timeline-view');
+
+    function showCatalog() {
+      catalogBtn?.classList.add('active');
+      timelineBtn?.classList.remove('active');
+      catalogView?.style.setProperty('display', 'block');
+      timelineView?.style.setProperty('display', 'none');
+    }
+
+    function showTimeline() {
+      timelineBtn?.classList.add('active');
+      catalogBtn?.classList.remove('active');
+      timelineView?.style.setProperty('display', 'block');
+      catalogView?.style.setProperty('display', 'none');
+    }
+
+    catalogBtn?.addEventListener('click', showCatalog);
+    timelineBtn?.addEventListener('click', showTimeline);
+  </script>
+
+  <style>
+    /* 序言区块（古生古色） */
+    .poem-preface {
+      margin-bottom: 8px;
+    }
+    .preface-frame {
+      padding: 36px 40px;
+    }
+    .preface-title {
+      margin: 0 0 20px;
+      font-size: clamp(28px, 4vw, 38px);
+      color: var(--text);
+      text-align: center;
+    }
+    .preface-body {
+      color: color-mix(in srgb, var(--text), transparent 15%);
+    }
+    .preface-body p {
+      margin: 0 0 16px;
+      font-size: 16px;
+      line-height: 2.1;
+      text-indent: 2em;
+      letter-spacing: .02em;
+    }
+    .preface-signature {
+      margin-top: 24px;
+      text-align: right;
+    }
+    .preface-signature p {
+      margin: 0 0 4px;
+      color: var(--muted);
+      font-size: 15px;
+      font-family: "LXGW WenKai", "Noto Serif SC", serif;
+      letter-spacing: .04em;
+    }
+    /* 目录视图卡片配图缩略图 */
+    .poem-card-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .poem-card-gallery img {
+      width: 100%;
+      height: 96px;
+      border-radius: 10px;
+      object-fit: cover;
+      box-shadow: 0 8px 24px rgba(24, 31, 42, .12);
+    }
+    :root[data-theme="dark"] .poem-card-gallery img {
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .24);
+    }
+    /* 注释区块（背景/说明/注） */
+    .poem-notes {
+      display: grid;
+      gap: 4px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed color-mix(in srgb, var(--line), transparent 30%);
+    }
+    .poem-note-line {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    /* 时间轴视图中的配图网格 */
+    .poem-timeline-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .poem-timeline-gallery img {
+      width: 100%;
+      min-height: 100px;
+      border-radius: 10px;
+      object-fit: cover;
+      box-shadow: 0 8px 24px rgba(24, 31, 42, .12);
+    }
+    :root[data-theme="dark"] .poem-timeline-gallery img {
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .24);
+    }
+    /* 移动端序言适配 */
+    @media (max-width: 640px) {
+      .preface-frame {
+        padding: 24px 20px;
+      }
+      .preface-body p {
+        font-size: 15px;
+      }
+    }
+  </style>
+</BaseLayout>

@@ -1,0 +1,133 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import Twikoo from '../../components/Twikoo.astro';
+import { site } from '../../data/site';
+import { getPosts } from '../../lib/content';
+
+export function getStaticPaths() {
+  const posts = getPosts();
+  return posts.map((post, index) => ({
+    params: { slug: post.slug },
+    props: {
+      post,
+      // posts 按日期倒序排列（新→旧），所以：
+      // prev = 更早的文章（数组中 index+1）
+      // next = 更晚的文章（数组中 index-1）
+      prev: posts[index + 1] || null,
+      next: index > 0 ? posts[index - 1] : null
+    }
+  }));
+}
+
+const { post, prev, next } = Astro.props;
+---
+
+<BaseLayout title={post.title} description={post.description}>
+  <article class="article-shell hydro-post-page-lite">
+    <header class="article-header">
+      <p>
+        {post.pinned ? <span class="pin-badge">置顶</span> : null}
+        <time datetime={post.date}>{post.date}</time>
+        <span>·</span>
+        <span>{post.readingMinutes} 分钟</span>
+      </p>
+      <h1>{post.title}</h1>
+      <div class="chips">
+        {post.categories.map((item) => <a href={`/categories/${encodeURIComponent(item)}/`}>{item}</a>)}
+        {post.tags.map((item) => <a href={`/tags/${encodeURIComponent(item)}/`}>{item}</a>)}
+      </div>
+    </header>
+
+    {(prev || next) && (
+      <nav class="post-nav post-nav-top" aria-label="文章导航">
+        {prev ? (
+          <a class="post-nav-item post-nav-prev" href={`/posts/${prev.slug}/`}>
+            <span class="post-nav-label">上一篇</span>
+            <span class="post-nav-title">{prev.title}</span>
+          </a>
+        ) : <span class="post-nav-item post-nav-placeholder"></span>}
+        {next ? (
+          <a class="post-nav-item post-nav-next" href={`/posts/${next.slug}/`}>
+            <span class="post-nav-label">下一篇</span>
+            <span class="post-nav-title">{next.title}</span>
+          </a>
+        ) : <span class="post-nav-item post-nav-placeholder"></span>}
+      </nav>
+    )}
+
+    <div class="article-layout">
+      <div class="article-main">
+        <div class="prose" set:html={post.html}></div>
+
+        <section class="post-copyright" aria-label="文章版权信息">
+          <div>
+            <span>作者</span>
+            <strong>{site.author}</strong>
+          </div>
+          <div>
+            <span>发布于</span>
+            <strong>{post.date || '未知'}</strong>
+          </div>
+          <div>
+            <span>更新于</span>
+            <strong>{post.updated || post.date || '未知'}</strong>
+          </div>
+          <div>
+            <span>许可协议</span>
+            <a href={site.license.url} target="_blank" rel="noopener">{site.license.name}</a>
+          </div>
+        </section>
+
+        {(prev || next) && (
+          <nav class="post-nav post-nav-bottom" aria-label="文章导航">
+            {prev ? (
+              <a class="post-nav-item post-nav-prev" href={`/posts/${prev.slug}/`}>
+                <span class="post-nav-label">上一篇</span>
+                <span class="post-nav-title">{prev.title}</span>
+              </a>
+            ) : <span class="post-nav-item post-nav-placeholder"></span>}
+            {next ? (
+              <a class="post-nav-item post-nav-next" href={`/posts/${next.slug}/`}>
+                <span class="post-nav-label">下一篇</span>
+                <span class="post-nav-title">{next.title}</span>
+              </a>
+            ) : <span class="post-nav-item post-nav-placeholder"></span>}
+          </nav>
+        )}
+
+        <!-- 赞赏弹窗已提升至 BaseLayout 的 body 子级，避免 .article-shell 包含块与层叠上下文影响定位 -->
+      </div>
+
+      <aside class="article-toc hydro-post-aside-lite" aria-label="文章侧栏">
+        <section class="reader-panel">
+          <div>
+            <p>READING</p>
+            <strong>{post.readingMinutes} min</strong>
+          </div>
+          <span><i data-reader-progress></i></span>
+          <dl>
+            <div><dt>发布</dt><dd>{post.date || '未知'}</dd></div>
+            <div><dt>更新</dt><dd>{post.updated || post.date || '未知'}</dd></div>
+            <div><dt>分类</dt><dd>{post.categories[0] || '随笔'}</dd></div>
+          </dl>
+        </section>
+        {post.toc.length ? (
+          <section class="toc-panel">
+            <strong>目录</strong>
+            {post.toc.map((item) => <a href={`#${item.id}`} data-depth={item.depth}>{item.text}</a>)}
+          </section>
+        ) : null}
+        <section class="toc-actions">
+          <button type="button" data-share-current><Icon name="link" />分享本文</button>
+          <button type="button" data-reward-toggle><Icon name="heart" />赞赏作者</button>
+          <a href="#post-comment"><Icon name="message" />去评论</a>
+        </section>
+      </aside>
+    </div>
+  </article>
+
+  <div class="content-shell">
+    <Twikoo />
+  </div>
+</BaseLayout>

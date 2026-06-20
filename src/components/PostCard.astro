@@ -1,0 +1,36 @@
+---
+import Icon from './Icon.astro';
+import { site } from '../data/site';
+import type { Post } from '../lib/content';
+const { post, compact = false } = Astro.props;
+const typedPost = post as Post;
+---
+
+<article class:list={['post-card', 'breathe-card', { compact }]}>
+  <a class="post-cover" href={`/posts/${typedPost.slug}/`} aria-label={typedPost.title}>
+    <img
+      src={typedPost.cover}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      referrerpolicy="no-referrer"
+      onerror={`this.onerror=null;this.src='${site.assets.defaultPostCover}'`}
+    />
+  </a>
+  <div class="post-card-body">
+    <div class="meta-line">
+      <time datetime={typedPost.date}>{typedPost.date}</time>
+      <span>{typedPost.readingMinutes} 分钟</span>
+    </div>
+    <h2><a href={`/posts/${typedPost.slug}/`}>{typedPost.title}</a></h2>
+    <p>{typedPost.description || typedPost.excerpt}</p>
+    <div class="chips">
+      {typedPost.categories.map((item) => <a href={`/categories/${encodeURIComponent(item)}/`}>{item}</a>)}
+      {typedPost.tags.slice(0, 3).map((item) => <a href={`/tags/${encodeURIComponent(item)}/`}>{item}</a>)}
+    </div>
+    <a class="text-link" href={`/posts/${typedPost.slug}/`}>
+      阅读
+      <Icon name="arrow" />
+    </a>
+  </div>
+</article>

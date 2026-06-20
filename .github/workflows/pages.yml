@@ -1,0 +1,74 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时间只跑一个部署，避免并发冲突
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build
+        run: npm run build
+        env:
+          # 在仓库 Settings → Secrets and variables → Actions 中添加这些变量
+          # 没用到的不用加，留空即可
+          PUBLIC_SITE_NAME: ${{ secrets.PUBLIC_SITE_NAME }}
+          PUBLIC_SITE_AUTHOR: ${{ secrets.PUBLIC_SITE_AUTHOR }}
+          PUBLIC_SITE_DESC: ${{ secrets.PUBLIC_SITE_DESC }}
+          PUBLIC_SITE_URL: ${{ secrets.PUBLIC_SITE_URL }}
+          PUBLIC_SITE_START: ${{ secrets.PUBLIC_SITE_START }}
+          PUBLIC_SITE_ICP: ${{ secrets.PUBLIC_SITE_ICP }}
+          PUBLIC_TWIKOO_API: ${{ secrets.PUBLIC_TWIKOO_API }}
+          PUBLIC_METING_API: ${{ secrets.PUBLIC_METING_API }}
+          PUBLIC_SONG_ID: ${{ secrets.PUBLIC_SONG_ID }}
+          PUBLIC_BG_IMAGE_API: ${{ secrets.PUBLIC_BG_IMAGE_API }}
+          PUBLIC_STEAM_API_KEY: ${{ secrets.PUBLIC_STEAM_API_KEY }}
+          PUBLIC_BILIBILI_UID: ${{ secrets.PUBLIC_BILIBILI_UID }}
+          PUBLIC_CIRCLE_API: ${{ secrets.PUBLIC_CIRCLE_API }}
+          POST_PASSWORD: ${{ secrets.POST_PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_REPO: ${{ secrets.GITHUB_REPO }}
+          GITHUB_BRANCH: ${{ secrets.GITHUB_BRANCH }}
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

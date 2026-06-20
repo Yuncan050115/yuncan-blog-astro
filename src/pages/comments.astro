@@ -1,0 +1,12 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHero from '../components/PageHero.astro';
+import Twikoo from '../components/Twikoo.astro';
+---
+
+<BaseLayout title="留言板">
+  <PageHero title="留言板" description="想说点什么，写在这里就好。" />
+  <section class="content-shell">
+    <Twikoo />
+  </section>
+</BaseLayout>

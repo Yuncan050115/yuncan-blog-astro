@@ -1,0 +1,104 @@
+---
+// PostEditor.astro - 超轻量文章管理页
+// 通过 FPS 区域连续点击 5 次触发隐藏入口
+// 密码从 .env 的 POST_PASSWORD 注入
+// GitHub API CRUD 从 GITHUB_TOKEN 和 GITHUB_REPO 注入
+const postPassword = import.meta.env.POST_PASSWORD || '';
+const githubToken = import.meta.env.GITHUB_TOKEN || '';
+const githubRepo = import.meta.env.GITHUB_REPO || '';
+const githubBranch = import.meta.env.GITHUB_BRANCH || 'master';
+const isConfigured = !!postPassword;
+const hasToken = !!githubToken && !!githubRepo;
+---
+{isConfigured && (
+<div class="post-editor-overlay" id="post-editor-overlay" style="display: none;" transition:persist>
+  <div class="post-editor-modal">
+    <!-- 密码验证 -->
+    <div class="pe-auth" id="pe-auth">
+      <h3>管理验证</h3>
+      <input type="password" id="pe-password" placeholder="请输入管理密码" autocomplete="off" />
+      <button id="pe-auth-btn">验证</button>
+      <p class="pe-error" id="pe-error"></p>
+      <button class="pe-close" id="pe-close-auth">&times;</button>
+    </div>
+
+    <!-- 管理界面 -->
+    <div class="pe-panel" id="pe-panel" style="display: none;">
+      <div class="pe-header">
+        <h3>文章管理</h3>
+        <div class="pe-actions">
+          <button id="pe-new" class="pe-btn pe-btn-primary">新建文章</button>
+          <button class="pe-close" id="pe-close-panel">&times;</button>
+        </div>
+      </div>
+
+      <!-- 文章列表 -->
+      <div class="pe-list-view" id="pe-list-view">
+        <input type="text" id="pe-search" placeholder="搜索文章..." class="pe-search" />
+        <div class="pe-list" id="pe-list">
+          <p class="pe-loading">加载中...</p>
+        </div>
+      </div>
+
+      <!-- 编辑器 -->
+      <div class="pe-editor-view" id="pe-editor-view" style="display: none;">
+        <div class="pe-editor-header">
+          <button id="pe-back" class="pe-btn">&larr; 返回列表</button>
+          <span id="pe-mode-label">新建文章</span>
+        </div>
+        <div class="pe-form">
+          <input type="hidden" id="pe-file-path" />
+          <input type="hidden" id="pe-file-sha" />
+          <input type="hidden" id="pe-original-date" />
+          <div class="pe-field">
+            <label>标题</label>
+            <input type="text" id="pe-title" placeholder="文章标题" />
+          </div>
+          <div class="pe-field-row">
+            <div class="pe-field">
+              <label>分类（逗号分隔）</label>
+              <input type="text" id="pe-categories" placeholder="技术,教程" />
+            </div>
+            <div class="pe-field">
+              <label>标签（逗号分隔）</label>
+              <input type="text" id="pe-tags" placeholder="Hexo,博客" />
+            </div>
+          </div>
+          <div class="pe-field">
+            <label>描述</label>
+            <input type="text" id="pe-description" placeholder="文章描述（留空自动生成）" />
+          </div>
+          <div class="pe-field-row">
+            <div class="pe-field">
+              <label>置顶（0=不置顶，数字越大越靠前）</label>
+              <input type="number" id="pe-sticky" value="0" min="0" max="10" />
+            </div>
+            <div class="pe-field">
+              <label>封面图片 URL</label>
+              <input type="text" id="pe-cover" placeholder="https://..." />
+            </div>
+          </div>
+          <div class="pe-field">
+            <label>正文（Markdown）</label>
+            <textarea id="pe-body" rows="15" placeholder="在此输入 Markdown 内容..."></textarea>
+          </div>
+          <div class="pe-editor-actions">
+            <button id="pe-save" class="pe-btn pe-btn-primary">保存到 GitHub</button>
+            <button id="pe-delete" class="pe-btn pe-btn-danger" style="display: none;">删除文章</button>
+            <button id="pe-copy" class="pe-btn">复制 Markdown</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 消息提示 -->
+      <div class="pe-toast" id="pe-toast" style="display: none;"></div>
+    </div>
+  </div>
+</div>
+)}
+
+<script is:inline define:vars={{ hasToken, githubToken, githubRepo, githubBranch, postPassword }}>
+  window.__peConfig = { hasToken, githubRepo, githubBranch };
+  window.__peToken = githubToken;
+  window.__pePassword = postPassword;
+</script>

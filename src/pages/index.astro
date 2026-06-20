@@ -1,0 +1,98 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import HomeStage from '../components/HomeStage.astro';
+import Icon from '../components/Icon.astro';
+import { getPosts, getTaxonomy } from '../lib/content';
+
+const posts = getPosts();
+const latest = [...posts]
+  .sort((a, b) => {
+    if (b.sticky !== a.sticky) return b.sticky - a.sticky;
+    return Number(b.hasCover) - Number(a.hasCover) || +new Date(b.date) - +new Date(a.date);
+  })
+  .slice(0, 6);
+const tags = getTaxonomy('tags').slice(0, 10);
+const categories = getTaxonomy('categories').slice(0, 5);
+const entrances = [
+  ['在看', '/bangumis/', '追番和追剧', 'play'],
+  ['在玩', '/steamgames/', 'Steam 游戏库', 'play'],
+  ['留言板', '/comments/', '想说的话写在这里', 'message'],
+  ['友人帐', '/social/link/', '朋友们的小站', 'link'],
+  ['诗集', '/poems/', '自己写的诗', 'archive'],
+  ['项目', '/projects/', 'GitHub 置顶项目', 'github']
+] as const;
+---
+
+<BaseLayout>
+  <HomeStage />
+
+  <section class="hydro-home-section">
+    <div class="hydro-section-heading-lite">
+      <p>CATEGORIES</p>
+      <h2>分类</h2>
+      <a href="/categories/">全部分类</a>
+    </div>
+    <div class="hydro-category-slices-lite">
+      {categories.map((category, index) => (
+        <a class="hydro-category-slice-lite" href={`/categories/${encodeURIComponent(category.name)}/`}>
+          <div class="hydro-category-slice-top">
+            <span>{String(index + 1).padStart(2, '0')}</span>
+            <small>{category.posts.length} 篇</small>
+          </div>
+          <strong>{category.name}</strong>
+          <em>同一类的文章，可以顺着读一遍。</em>
+          <b>{category.posts.length}</b>
+        </a>
+      ))}
+    </div>
+  </section>
+
+  <section id="recent" class="hydro-home-section hydro-latest-lite">
+    <div class="hydro-section-heading-lite">
+      <p>RECENT</p>
+      <h2>最近文章</h2>
+      <a href="/archives/">查看归档</a>
+    </div>
+    <div class="hydro-latest-list">
+      {latest.map((post, index) => (
+        <a class="hydro-latest-item breathe-card" href={`/posts/${post.slug}/`}>
+          <span>{String(index + 1).padStart(2, '0')}</span>
+          <div>
+            <time datetime={post.date}>{post.date}</time>
+            {post.pinned && <span class="pin-badge">置顶</span>}
+            <strong>{post.title}</strong>
+            <p>{post.description}</p>
+          </div>
+          <em>{post.categories[0] || '随笔'}</em>
+        </a>
+      ))}
+    </div>
+  </section>
+
+  <section class="hydro-home-section hydro-tags-line">
+    <div class="hydro-section-heading-lite">
+      <p>TAGS</p>
+      <h2>标签</h2>
+      <a href="/tags/">全部标签</a>
+    </div>
+    <div class="tag-river">
+      {tags.map((tag) => <a class="breathe-card" href={`/tags/${encodeURIComponent(tag.name)}/`}>{tag.name}<span>{tag.posts.length}</span></a>)}
+    </div>
+  </section>
+
+  <section class="hydro-home-section">
+    <div class="hydro-section-heading-lite">
+      <p>ENTRANCES</p>
+      <h2>入口</h2>
+    </div>
+    <div class="entrance-grid entrance-grid-lite">
+      {entrances.map(([label, href, desc, icon]) => (
+        <a class="entrance-card breathe-card" href={href}>
+          <Icon name={icon} />
+          <strong>{label}</strong>
+          <span>{desc}</span>
+        </a>
+      ))}
+    </div>
+  </section>
+</BaseLayout>

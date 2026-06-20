@@ -1,0 +1,48 @@
+---
+import { site } from '../data/site';
+import Icon from './Icon.astro';
+
+const today = new Date().toLocaleDateString('zh-CN', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  weekday: 'long'
+});
+---
+
+<section class="first-screen" aria-label="博客首屏">
+  <div class="hero-media" aria-hidden="true">
+    <img
+      src={site.heroImage}
+      alt=""
+      width="1600"
+      height="900"
+      loading="eager"
+      decoding="async"
+      fetchpriority="high"
+      onerror={`this.onerror=null;this.src='${site.heroFallback}'`}
+    />
+    <div class="hero-vignette"></div>
+  </div>
+
+  <div class="hero-content">
+    <p class="hero-kicker">
+      <span></span>
+      YUNCAN / {today}
+    </p>
+    <h1>{site.title}</h1>
+    <p class="hero-subtitle">{site.subtitle}</p>
+    <div class="hero-actions">
+      <a class="primary-link" href="/archives/">
+        看文章
+        <Icon name="arrow" />
+      </a>
+      <a class="ghost-link" href="/comments/">留一句话</a>
+    </div>
+  </div>
+
+  <div class="scroll-hint" aria-hidden="true">
+    <span></span>
+    <strong>向下滚动</strong>
+  </div>
+</section>

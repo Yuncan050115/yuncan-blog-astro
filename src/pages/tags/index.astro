@@ -1,0 +1,16 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHero from '../../components/PageHero.astro';
+import { getTaxonomy } from '../../lib/content';
+
+const tags = getTaxonomy('tags');
+---
+
+<BaseLayout title="标签">
+  <PageHero title="标签" description="按主题给文章做一排索引，翻找起来方便些。" />
+  <section class="content-shell">
+    <div class="tag-cloud">
+      {tags.map((tag) => <a class="breathe-card" href={`/tags/${tag.slug}/`} style={`--weight:${Math.min(1.9, 1 + tag.posts.length / 6)}`}>{tag.name}<span>{tag.posts.length}</span></a>)}
+    </div>
+  </section>
+</BaseLayout>
