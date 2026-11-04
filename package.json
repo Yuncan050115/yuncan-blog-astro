@@ -23,7 +23,7 @@
     "katex": "^0.17.0",
     "marked": "^18.0.5",
     "marked-katex-extension": "^5.1.10",
-    "shiki": "^4.2.0",
+    "shiki": "^4.5.0",
     "three": "^0.184.0",
     "typescript": "latest",
     "yaml": "^2.9.0"
