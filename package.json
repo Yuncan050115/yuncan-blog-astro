@@ -22,7 +22,7 @@
     "gray-matter": "^4.0.3",
     "katex": "^0.17.0",
     "marked": "^18.0.5",
-    "marked-katex-extension": "^5.1.10",
+    "marked-katex-extension": "^5.1.13",
     "shiki": "^4.2.0",
     "three": "^0.184.0",
     "typescript": "latest",
