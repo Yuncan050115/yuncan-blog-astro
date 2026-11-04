@@ -4,6 +4,7 @@
 // 获取失败时保留旧文件不变，确保站点始终有数据可展示。
 import { writeFileSync, existsSync, readFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { pathToFileURL } from 'url';
 
 const root = process.cwd();
 const DATA_DIR = join(root, 'content', 'data');
@@ -101,21 +102,29 @@ async function fetchCircleFeed() {
 
 async function fetchBilibiliBangumi() {
   const vmid = getEnv('PUBLIC_BILIBILI_UID') || '';
+  if (!vmid) {
+    console.log('[fetch-external-data] Bangumi: BILIBILI UID 未配置，跳过');
+    return null;
+  }
 
   const results = { want: [], watching: [], watched: [] };
   // status: 1=想看, 2=在看, 3=看过
   // type: 1=番剧, 2=影视
   const statusMap = { 1: 'want', 2: 'watching', 3: 'watched' };
 
+  let combos = 0;
+  let errored = 0;
   for (const [status, key] of Object.entries(statusMap)) {
     for (const category of [1, 2]) {
+      combos++;
       let page = 1;
       let hasMore = true;
       while (hasMore) {
         const url = `https://api.bilibili.com/x/space/bangumi/follow/list?vmid=${vmid}&type=${category}&follow_status=${status}&pn=${page}&ps=30`;
         try {
-          const res = await fetch(url);
-          const data = await res.json();
+          // 与 Steam/Circle 一致带超时：接口挂起（不报错地吞掉连接）时中止，
+          // 否则整个 build 会卡在这里直到 CI 超时。
+          const data = await fetchWithTimeout(url);
           if (data.code !== 0) throw new Error(data.message);
           const list = data.data?.list || [];
           const total = data.data?.total || 0;
@@ -140,6 +149,7 @@ async function fetchBilibiliBangumi() {
           // 避免请求过快
           if (hasMore) await new Promise(r => setTimeout(r, 200));
         } catch (e) {
+          errored++;
           console.log(`[fetch-external-data] Bilibili error (status=${status}, cat=${category}, page=${page}): ${e.message}`);
           hasMore = false;
         }
@@ -147,7 +157,13 @@ async function fetchBilibiliBangumi() {
     }
   }
 
+  // 配置了 UID 但每个组合都失败（接口挂了/超时）：视为该源失败，--strict 下 build 失败。
+  if (combos > 0 && errored === combos) {
+    throw new Error(`全部 ${combos} 个请求都失败`);
+  }
+
   results.lastUpdate = new Date().toISOString();
+  if (!results.want.length && !results.watching.length && !results.watched.length) return null;
   return results;
 }
 
@@ -157,52 +173,56 @@ function ensureDataDir() {
   }
 }
 
-function writeIfValid(file, payload, label) {
-  if (Array.isArray(payload) && payload.length) {
+/** 降级决策（纯函数，供测试）：单个数据源结束时写什么、build 是否失败。
+ * 成功且有数据 → 写入；未配置、抓到空数组或抓取失败 → 保留旧数据，没有旧数据就写空占位；
+ * 只有抓取失败且 --strict 才让 build 失败（exitCode 1）。 */
+export function sourceOutcome({ failed = false, payload = null, hasOld = false, strict = false } = {}) {
+  if (!failed && payload != null && !(Array.isArray(payload) && payload.length === 0)) {
+    return { action: 'write', failed: false, exitCode: 0 };
+  }
+  return { action: hasOld ? 'keep' : 'placeholder', failed, exitCode: failed && strict ? 1 : 0 };
+}
+
+async function runSource(label, file, fetcher, placeholder, strict) {
+  let payload = null;
+  let failed = false;
+  try {
+    payload = await fetcher();
+  } catch (e) {
+    failed = true;
+    console.log(`[fetch-external-data] ${label} 错误: ${e.message}`);
+  }
+  const out = sourceOutcome({ failed, payload, hasOld: existsSync(file), strict });
+  if (out.action === 'write') {
     writeFileSync(file, JSON.stringify(payload));
-    console.log(`[fetch-external-data] ${label}: ${payload.length} 条数据已保存`);
-    return true;
-  }
-  if (existsSync(file)) {
-    console.log(`[fetch-external-data] ${label}: 获取失败或为空，保留旧数据`);
+    console.log(`[fetch-external-data] ${label}: ${Array.isArray(payload) ? `${payload.length} 条数据已保存` : '数据已保存'}`);
+  } else if (out.action === 'keep') {
+    console.log(`[fetch-external-data] ${label}: 抓取失败或为空，保留旧数据`);
   } else {
-    writeFileSync(file, '[]');
-    console.log(`[fetch-external-data] ${label}: 获取失败且无旧数据，写入空数组`);
+    writeFileSync(file, placeholder);
+    console.log(`[fetch-external-data] ${label}: 抓取失败且无旧数据，写入空占位`);
   }
-  return false;
+  return out.exitCode;
 }
 
 async function main() {
   ensureDataDir();
+  const strict = process.argv.includes('--strict');
 
-  try {
-    const games = await fetchSteamGames();
-    writeIfValid(STEAM_FILE, games, 'Steam');
-  } catch (e) {
-    console.log(`[fetch-external-data] Steam 错误: ${e.message}，保留旧数据`);
-    if (!existsSync(STEAM_FILE)) writeFileSync(STEAM_FILE, '[]');
-  }
+  const exitCodes = [];
+  exitCodes.push(await runSource('Steam', STEAM_FILE, fetchSteamGames, '[]', strict));
+  exitCodes.push(await runSource('Circle', CIRCLE_FILE, fetchCircleFeed, '[]', strict));
+  // Bangumi 数据是对象形状，空占位也保持对象，避免消费端拿到数组。
+  exitCodes.push(await runSource('Bangumi', BANGUMI_FILE, fetchBilibiliBangumi,
+    JSON.stringify({ want: [], watching: [], watched: [], lastUpdate: '' }), strict));
 
-  try {
-    const articles = await fetchCircleFeed();
-    writeIfValid(CIRCLE_FILE, articles, 'Circle');
-  } catch (e) {
-    console.log(`[fetch-external-data] Circle 错误: ${e.message}，保留旧数据`);
-    if (!existsSync(CIRCLE_FILE)) writeFileSync(CIRCLE_FILE, '[]');
-  }
-
-  // Bangumi
-  try {
-    const bangumiData = await fetchBilibiliBangumi();
-    if (bangumiData.want.length || bangumiData.watching.length || bangumiData.watched.length) {
-      writeFileSync(BANGUMI_FILE, JSON.stringify(bangumiData));
-      console.log(`[fetch-external-data] Bangumi: want=${bangumiData.want.length} watching=${bangumiData.watching.length} watched=${bangumiData.watched.length}`);
-    } else if (existsSync(BANGUMI_FILE)) {
-      console.log('[fetch-external-data] Bangumi: fetch returned empty, keeping old data');
-    }
-  } catch (e) {
-    console.log(`[fetch-external-data] Bangumi error: ${e.message}, keeping old data`);
+  if (strict && exitCodes.some((c) => c !== 0)) {
+    console.error('[fetch-external-data] --strict：有数据源抓取失败，build 按要求失败');
+    process.exitCode = 1;
   }
 }
 
-main();
+// 仅作为脚本直接运行时才抓取；被测试导入时不动网络。
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
