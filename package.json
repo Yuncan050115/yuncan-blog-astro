@@ -20,7 +20,7 @@
     "astro": "latest",
     "astro-bangumi": "^1.0.0",
     "gray-matter": "^4.0.3",
-    "katex": "^0.17.0",
+    "katex": "^0.19.1",
     "marked": "^18.0.5",
     "marked-katex-extension": "^5.1.10",
     "shiki": "^4.2.0",
